@@ -1,0 +1,167 @@
+#!/bin/bash
+# DK-B-Server Configuration File
+# Copy this file to /etc/dk-b-server.conf and adjust the values
+
+# =============================================================================
+# NETWORK CONFIGURATION
+# =============================================================================
+
+# Enable WireGuard VPN (yes/no)
+ENABLE_WIREGUARD="yes"
+
+# WireGuard interface name
+WG_INTERFACE="wg0"
+
+# WireGuard configuration file path
+WG_CONFIG="/etc/wireguard/${WG_INTERFACE}.conf"
+
+# Network check timeout (seconds)
+NETWORK_TIMEOUT=30
+
+# =============================================================================
+# iSCSI CONFIGURATION
+# =============================================================================
+
+# iSCSI target portal (IP:PORT)
+ISCSI_TARGET_PORTAL="192.168.1.100:3260"
+
+# iSCSI target IQN (iSCSI Qualified Name)
+ISCSI_TARGET_IQN="iqn.2024-01.com.example:storage.target01"
+
+# iSCSI initiator name (leave empty for auto-generation)
+ISCSI_INITIATOR_NAME=""
+
+# iSCSI device mount point
+ISCSI_MOUNT_POINT="/mnt/iscsi"
+
+# iSCSI filesystem type (ext4, xfs, etc.)
+ISCSI_FS_TYPE="ext4"
+
+# CHAP authentication (yes/no)
+ISCSI_USE_CHAP="no"
+
+# CHAP username (if ISCSI_USE_CHAP=yes)
+ISCSI_CHAP_USER=""
+
+# CHAP password (if ISCSI_USE_CHAP=yes)
+ISCSI_CHAP_PASSWORD=""
+
+# =============================================================================
+# CACHE CONFIGURATION
+# =============================================================================
+
+# Cache device (SSD RAID array)
+CACHE_DEVICE="/dev/md128"
+
+# Cache size (110 GB SSD)
+CACHE_SIZE="110G"
+
+# Cache mode (writethrough, writeback, writearound)
+# writeback: Better performance, uses 16GB RAM for buffering
+# writethrough: Safer but slower
+CACHE_MODE="writeback"
+
+# Sequential cutoff (MB) - data larger than this bypasses cache
+CACHE_SEQUENTIAL_CUTOFF="4"
+
+# =============================================================================
+# SAMBA CONFIGURATION
+# =============================================================================
+
+# Samba share name
+SAMBA_SHARE_NAME="iscsi-storage"
+
+# Samba share path (same as iSCSI mount point)
+SAMBA_SHARE_PATH="${ISCSI_MOUNT_POINT}"
+
+# Samba workgroup
+SAMBA_WORKGROUP="WORKGROUP"
+
+# Samba guest access (yes/no)
+SAMBA_GUEST_OK="yes"
+
+# Samba read only (yes/no)
+SAMBA_READ_ONLY="no"
+
+# =============================================================================
+# NFS CONFIGURATION
+# =============================================================================
+
+# NFS export path (same as iSCSI mount point)
+NFS_EXPORT_PATH="${ISCSI_MOUNT_POINT}"
+
+# NFS allowed networks (CIDR notation, space-separated)
+NFS_ALLOWED_NETWORKS="192.168.1.0/24 10.0.0.0/24"
+
+# NFS options
+NFS_OPTIONS="rw,sync,no_subtree_check,no_root_squash"
+
+# =============================================================================
+# EXTERNAL NFS MOUNT CONFIGURATION
+# =============================================================================
+
+# Enable external NFS mount (yes/no)
+ENABLE_EXTERNAL_NFS="yes"
+
+# External NFS server (accessible via WireGuard)
+EXTERNAL_NFS_SERVER="10.0.0.5"
+
+# External NFS export path
+EXTERNAL_NFS_EXPORT="/srv/shared"
+
+# Local mount point for external NFS
+EXTERNAL_NFS_MOUNT_POINT="/mnt/external-nfs"
+
+# External NFS mount options
+EXTERNAL_NFS_OPTIONS="rw,hard,intr,rsize=8192,wsize=8192"
+
+# =============================================================================
+# NEXTCLOUD CLIENT CONFIGURATION
+# =============================================================================
+
+# Enable Nextcloud client (yes/no)
+ENABLE_NEXTCLOUD="yes"
+
+# Nextcloud server URL
+NEXTCLOUD_SERVER_URL="https://nextcloud.example.com"
+
+# Nextcloud username
+NEXTCLOUD_USER="admin"
+
+# Nextcloud password or app password
+NEXTCLOUD_PASSWORD=""
+
+# Local sync directory
+NEXTCLOUD_LOCAL_DIR="${ISCSI_MOUNT_POINT}/nextcloud-sync"
+
+# Remote sync directory on Nextcloud
+NEXTCLOUD_REMOTE_DIR="/"
+
+# Sync interval (minutes)
+NEXTCLOUD_SYNC_INTERVAL="5"
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+
+# Log directory
+LOG_DIR="/var/log/dk-b-server"
+
+# Log level (DEBUG, INFO, WARNING, ERROR)
+LOG_LEVEL="INFO"
+
+# Keep logs for (days)
+LOG_RETENTION_DAYS="30"
+
+# =============================================================================
+# SYSTEM CONFIGURATION
+# =============================================================================
+
+# Wait time between service starts (seconds)
+SERVICE_START_DELAY="5"
+
+# Maximum retries for failed operations
+MAX_RETRIES="3"
+
+# Retry delay (seconds)
+RETRY_DELAY="10"
