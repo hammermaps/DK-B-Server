@@ -1,0 +1,211 @@
+# WireGuard Configuration Template
+# Save this file as /etc/wireguard/wg0.conf
+
+[Interface]
+# Private key for this server
+# Generate with: wg genkey
+PrivateKey = YOUR_PRIVATE_KEY_HERE
+
+# IP address for this server in the VPN network
+Address = 10.0.0.2/24
+
+# Optional: Listen port (default 51820)
+ListenPort = 51820
+
+# Optional: DNS servers to use when VPN is active
+# DNS = 1.1.1.1, 1.0.0.1
+
+# Optional: IPv6 address
+# Address = fd00::2/64
+
+# Optional: MTU setting (useful for some networks)
+# MTU = 1420
+
+# Optional: Pre-up/Post-up commands
+# Run commands before bringing the interface up
+# PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+# Optional: Pre-down/Post-down commands
+# Run commands before bringing the interface down
+# PreDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+[Peer]
+# VPN Server/Gateway Configuration
+# Public key of the peer (VPN server)
+# Exchange public keys with: wg pubkey < privatekey
+PublicKey = PEER_PUBLIC_KEY_HERE
+
+# Optional: Pre-shared key for additional security
+# Generate with: wg genpsk
+# PresharedKey = PRESHARED_KEY_HERE
+
+# Endpoint: IP and port of the VPN server
+Endpoint = vpn.example.com:51820
+
+# AllowedIPs: Which traffic should go through this VPN
+# 0.0.0.0/0 - All traffic through VPN (not recommended for server)
+# 10.0.0.0/24 - Only VPN network traffic
+# 10.0.0.0/24,192.168.100.0/24 - Multiple networks
+AllowedIPs = 10.0.0.0/24
+
+# PersistentKeepalive: Send keepalive packets every N seconds
+# Useful for maintaining connection through NAT
+PersistentKeepalive = 25
+
+# =============================================================================
+# MULTIPLE PEERS EXAMPLE
+# =============================================================================
+# You can add multiple [Peer] sections if you need to connect to multiple peers
+
+# [Peer]
+# # Another server or client
+# PublicKey = ANOTHER_PEER_PUBLIC_KEY
+# Endpoint = another-server.example.com:51820
+# AllowedIPs = 192.168.100.0/24
+# PersistentKeepalive = 25
+
+# =============================================================================
+# COMMON CONFIGURATIONS
+# =============================================================================
+
+# CONFIGURATION 1: Site-to-Site VPN (Connect two office networks)
+# Use this when connecting DK-B-Server to a remote network
+#
+# [Interface]
+# PrivateKey = YOUR_PRIVATE_KEY
+# Address = 10.0.0.2/24
+# ListenPort = 51820
+#
+# [Peer]
+# PublicKey = REMOTE_SITE_PUBLIC_KEY
+# Endpoint = remote-site.example.com:51820
+# AllowedIPs = 10.0.0.0/24, 192.168.100.0/24
+# PersistentKeepalive = 25
+
+# CONFIGURATION 2: Remote Access VPN (Connect to remote NFS server)
+# Use this when mounting external NFS from a remote server
+#
+# [Interface]
+# PrivateKey = YOUR_PRIVATE_KEY
+# Address = 10.0.0.2/24
+#
+# [Peer]
+# PublicKey = NFS_SERVER_PUBLIC_KEY
+# Endpoint = nfs-server.example.com:51820
+# AllowedIPs = 10.0.0.1/32, 10.0.0.5/32
+# PersistentKeepalive = 25
+
+# CONFIGURATION 3: Multiple Connections
+# Use this when connecting to multiple remote sites
+#
+# [Interface]
+# PrivateKey = YOUR_PRIVATE_KEY
+# Address = 10.0.0.2/24
+# ListenPort = 51820
+#
+# [Peer]
+# # Main office
+# PublicKey = OFFICE_PUBLIC_KEY
+# Endpoint = office.example.com:51820
+# AllowedIPs = 10.0.0.0/24
+# PersistentKeepalive = 25
+#
+# [Peer]
+# # Backup server
+# PublicKey = BACKUP_PUBLIC_KEY
+# Endpoint = backup.example.com:51820
+# AllowedIPs = 10.0.1.0/24
+# PersistentKeepalive = 25
+
+# =============================================================================
+# SETUP INSTRUCTIONS
+# =============================================================================
+
+# 1. Generate keys:
+#    wg genkey | tee privatekey | wg pubkey > publickey
+#
+# 2. Edit this file with your values:
+#    sudo nano /etc/wireguard/wg0.conf
+#
+# 3. Secure the file:
+#    sudo chmod 600 /etc/wireguard/wg0.conf
+#
+# 4. Test the configuration:
+#    sudo wg-quick up wg0
+#    sudo wg show
+#    ping 10.0.0.1
+#
+# 5. Enable at boot:
+#    sudo systemctl enable wg-quick@wg0
+#
+# 6. Check status:
+#    sudo systemctl status wg-quick@wg0
+
+# =============================================================================
+# TROUBLESHOOTING
+# =============================================================================
+
+# Cannot connect:
+# - Check firewall: sudo ufw allow 51820/udp
+# - Verify endpoint is reachable: ping vpn.example.com
+# - Check keys are correct
+# - Review logs: sudo journalctl -u wg-quick@wg0
+
+# Connection drops:
+# - Increase PersistentKeepalive value
+# - Check NAT timeouts
+# - Verify network stability
+
+# Slow performance:
+# - Check MTU setting (try 1420, 1400, 1380)
+# - Test with: ping -M do -s 1400 10.0.0.1
+# - Adjust MTU if needed: MTU = 1400
+
+# =============================================================================
+# SECURITY BEST PRACTICES
+# =============================================================================
+
+# 1. Always use strong keys (generated with wg genkey)
+# 2. Secure file permissions: chmod 600 /etc/wireguard/wg0.conf
+# 3. Use PresharedKey for additional security
+# 4. Limit AllowedIPs to only necessary networks
+# 5. Rotate keys periodically
+# 6. Monitor connections: wg show
+# 7. Enable firewall rules
+# 8. Keep WireGuard updated: sudo apt update && sudo apt upgrade wireguard
+
+# =============================================================================
+# USEFUL COMMANDS
+# =============================================================================
+
+# Start VPN:           sudo wg-quick up wg0
+# Stop VPN:            sudo wg-quick down wg0
+# Show status:         sudo wg show
+# Show config:         sudo wg showconf wg0
+# Live stats:          watch -n 1 sudo wg show
+# Reload config:       sudo wg syncconf wg0 <(wg-quick strip wg0)
+# Check connectivity:  ping 10.0.0.1
+
+# =============================================================================
+# INTEGRATION WITH DK-B-SERVER
+# =============================================================================
+
+# After creating this configuration:
+#
+# 1. Edit /etc/dk-b-server.conf:
+#    ENABLE_WIREGUARD="yes"
+#    WG_INTERFACE="wg0"
+#
+# 2. If using external NFS via VPN:
+#    ENABLE_EXTERNAL_NFS="yes"
+#    EXTERNAL_NFS_SERVER="10.0.0.5"  # VPN IP of NFS server
+#    EXTERNAL_NFS_EXPORT="/srv/shared"
+#
+# 3. Run setup:
+#    sudo ./scripts/start_services.sh
+#
+# The setup script will:
+# - Verify WireGuard is configured
+# - Start the VPN connection
+# - Test connectivity
+# - Mount external NFS if configured
