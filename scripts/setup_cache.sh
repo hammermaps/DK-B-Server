@@ -106,7 +106,6 @@ prepare_cache_device() {
     if blkid "$cache_dev" >/dev/null 2>&1; then
         log_info "Removing existing filesystem signatures from $cache_dev..."
         wipefs -a "$cache_dev" || log_warning "Failed to wipe signatures (proceeding anyway)"
-        sleep 1
     fi
     
     # Format as cache device
@@ -144,7 +143,6 @@ prepare_backing_device() {
     if blkid "$backing_dev" >/dev/null 2>&1; then
         log_info "Removing existing filesystem signatures from $backing_dev..."
         wipefs -a "$backing_dev" || log_warning "Failed to wipe signatures (proceeding anyway)"
-        sleep 1
     fi
     
     # Format as backing device
