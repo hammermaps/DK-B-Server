@@ -170,6 +170,11 @@ prepare_backing_device() {
     
     log_info "New bcache device: $bcache_dev"
     
+    # Create filesystem on bcache device
+    local fs_type="${ISCSI_FS_TYPE:-ext4}"
+    log_info "Creating $fs_type filesystem on bcache device..."
+    mkfs -t "$fs_type" "$bcache_dev" || die "Failed to create filesystem on bcache device"
+    
     # Remount using bcache device
     log_info "Remounting as bcache device..."
     mount "$bcache_dev" "$mount_point" || die "Failed to remount bcache device"
