@@ -195,15 +195,15 @@ ensure_device_partition() {
         return 0
     fi
     
-    # Check if device has a partition table (case-insensitive)
-    if ! parted -s "$device" print 2>/dev/null | grep -qi "partition table"; then
+    # Check if device has a partition table by attempting to print it
+    if ! parted -s "$device" print >/dev/null 2>&1; then
         log_info "No partition table found on $device, creating one..."
         parted -s "$device" mklabel gpt || die "Failed to create partition table"
     fi
     
-    # Check if there are any partitions
+    # Check if there are any partitions (match lines that start with number followed by space)
     local partition_count
-    partition_count=$(parted -s "$device" print 2>/dev/null | awk '/^ *[0-9]+/ {count++} END {print count+0}')
+    partition_count=$(parted -s "$device" print 2>/dev/null | awk '/^ *[0-9]+ / {count++} END {print count+0}')
     
     if [ "$partition_count" -eq 0 ]; then
         log_info "No partitions found on $device, creating partition..."
@@ -214,7 +214,9 @@ ensure_device_partition() {
         local waited=0
         while [ ! -b "$partition" ] && [ $waited -lt 30 ]; do
             sleep 1
-            partprobe "$device" 2>/dev/null || log_warning "partprobe failed for $device"
+            if ! partprobe "$device" 2>/dev/null; then
+                log_warning "partprobe failed for $device at attempt $((waited + 1))"
+            fi
             waited=$((waited + 1))
         done
         
@@ -225,8 +227,8 @@ ensure_device_partition() {
         log_info "Partition $partition created successfully"
     else
         log_info "Device $device already has partitions"
-        # Get the first partition
-        partition=$(lsblk -ln -o NAME,TYPE "$device" | awk '$2=="part" {print $1; exit}')
+        # Get the first partition with error handling
+        partition=$(lsblk -ln -o NAME,TYPE "$device" 2>/dev/null | awk '$2=="part" {print $1; exit}')
         if [ -z "$partition" ]; then
             die "Could not find partition on $device"
         fi
