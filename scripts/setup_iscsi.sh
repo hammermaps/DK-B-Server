@@ -195,15 +195,15 @@ ensure_device_partition() {
         return 0
     fi
     
-    # Check if device has a partition table
-    if ! parted -s "$device" print 2>/dev/null | grep -q "Partition Table:"; then
+    # Check if device has a partition table (case-insensitive)
+    if ! parted -s "$device" print 2>/dev/null | grep -qi "partition table"; then
         log_info "No partition table found on $device, creating one..."
         parted -s "$device" mklabel gpt || die "Failed to create partition table"
     fi
     
     # Check if there are any partitions
     local partition_count
-    partition_count=$(parted -s "$device" print 2>/dev/null | grep -c "^ [0-9]" || echo "0")
+    partition_count=$(parted -s "$device" print 2>/dev/null | awk '/^ *[0-9]+/ {count++} END {print count+0}')
     
     if [ "$partition_count" -eq 0 ]; then
         log_info "No partitions found on $device, creating partition..."
@@ -214,7 +214,7 @@ ensure_device_partition() {
         local waited=0
         while [ ! -b "$partition" ] && [ $waited -lt 30 ]; do
             sleep 1
-            partprobe "$device" 2>/dev/null || true
+            partprobe "$device" 2>/dev/null || log_warning "partprobe failed for $device"
             waited=$((waited + 1))
         done
         
@@ -226,7 +226,10 @@ ensure_device_partition() {
     else
         log_info "Device $device already has partitions"
         # Get the first partition
-        partition=$(lsblk -ln -o NAME "$device" | grep -v "^$(basename "$device")$" | head -1)
+        partition=$(lsblk -ln -o NAME,TYPE "$device" | awk '$2=="part" {print $1; exit}')
+        if [ -z "$partition" ]; then
+            die "Could not find partition on $device"
+        fi
         partition="/dev/$partition"
     fi
     
