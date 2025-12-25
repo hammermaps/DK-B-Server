@@ -149,7 +149,7 @@ prepare_backing_device() {
     
     # Format as backing device
     log_info "Formatting $backing_dev as bcache backing device..."
-    log_warning "This will initialize the device for bcache (data will be preserved if possible)..."
+    log_warning "Device will be reformatted - existing data has been wiped"
     make-bcache -B "$backing_dev" --wipe-bcache || die "Failed to create backing device"
     
     log_info "Backing device prepared successfully"
