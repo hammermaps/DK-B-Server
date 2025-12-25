@@ -177,7 +177,7 @@ prepare_backing_device() {
     
     # Remount using bcache device
     log_info "Remounting as bcache device..."
-    mount "$bcache_dev" "$mount_point" || die "Failed to remount bcache device"
+    mount -t "$fs_type" "$bcache_dev" "$mount_point" || die "Failed to remount bcache device"
     
     # Update fstab
     backup_file /etc/fstab
