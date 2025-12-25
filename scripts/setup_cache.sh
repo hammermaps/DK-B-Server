@@ -102,6 +102,12 @@ prepare_cache_device() {
     local cache_size_gb=$((cache_size_bytes / 1024 / 1024 / 1024))
     log_info "Cache device size: ${cache_size_gb}GB"
     
+    # Remove any existing signatures
+    if blkid "$cache_dev" >/dev/null 2>&1; then
+        log_info "Removing existing filesystem signatures from $cache_dev..."
+        wipefs -a "$cache_dev" || log_warning "Failed to wipe signatures (proceeding anyway)"
+    fi
+    
     # Format as cache device
     log_info "Formatting $cache_dev as bcache cache device..."
     make-bcache -C "$cache_dev" --wipe-bcache || die "Failed to create cache device"
@@ -133,9 +139,15 @@ prepare_backing_device() {
     log_info "Unmounting $mount_point..."
     umount "$mount_point" || die "Failed to unmount $mount_point"
     
+    # Check for existing filesystem signatures
+    if blkid "$backing_dev" >/dev/null 2>&1; then
+        log_info "Removing existing filesystem signatures from $backing_dev..."
+        wipefs -a "$backing_dev" || log_warning "Failed to wipe signatures (proceeding anyway)"
+    fi
+    
     # Format as backing device
     log_info "Formatting $backing_dev as bcache backing device..."
-    log_warning "This will preserve existing data but may take some time..."
+    log_warning "Device will be reformatted - existing data will be lost"
     make-bcache -B "$backing_dev" --wipe-bcache || die "Failed to create backing device"
     
     log_info "Backing device prepared successfully"
