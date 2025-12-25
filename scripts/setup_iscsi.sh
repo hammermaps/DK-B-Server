@@ -27,6 +27,7 @@ install_iscsi_packages() {
     log_info "Installing iSCSI packages..."
     
     install_package open-iscsi
+    install_package parted
     
     log_info "iSCSI packages installed successfully"
 }
@@ -180,6 +181,59 @@ find_iscsi_device() {
     return 1
 }
 
+# Ensure device has a partition
+ensure_device_partition() {
+    local device="$1"
+    local partition="${device}1"
+    
+    log_info "Checking if device has a partition table..."
+    
+    # Check if device already has partitions
+    if [ -b "$partition" ]; then
+        log_info "Partition $partition already exists"
+        echo "$partition"
+        return 0
+    fi
+    
+    # Check if device has a partition table
+    if ! parted -s "$device" print 2>/dev/null | grep -q "Partition Table:"; then
+        log_info "No partition table found on $device, creating one..."
+        parted -s "$device" mklabel gpt || die "Failed to create partition table"
+    fi
+    
+    # Check if there are any partitions
+    local partition_count
+    partition_count=$(parted -s "$device" print 2>/dev/null | grep -c "^ [0-9]" || echo "0")
+    
+    if [ "$partition_count" -eq 0 ]; then
+        log_info "No partitions found on $device, creating partition..."
+        parted -s "$device" mkpart primary ext4 0% 100% || die "Failed to create partition"
+        
+        # Wait for partition device to appear
+        log_info "Waiting for partition device to appear..."
+        local waited=0
+        while [ ! -b "$partition" ] && [ $waited -lt 30 ]; do
+            sleep 1
+            partprobe "$device" 2>/dev/null || true
+            waited=$((waited + 1))
+        done
+        
+        if [ ! -b "$partition" ]; then
+            die "Partition device $partition did not appear"
+        fi
+        
+        log_info "Partition $partition created successfully"
+    else
+        log_info "Device $device already has partitions"
+        # Get the first partition
+        partition=$(lsblk -ln -o NAME "$device" | grep -v "^$(basename "$device")$" | head -1)
+        partition="/dev/$partition"
+    fi
+    
+    echo "$partition"
+    return 0
+}
+
 # Mount iSCSI device
 mount_iscsi_device() {
     local mount_point="${ISCSI_MOUNT_POINT:?iSCSI mount point not configured}"
@@ -194,6 +248,13 @@ mount_iscsi_device() {
     # Wait for device to be ready
     wait_for_device "$device_path" 30 || die "Device $device_path not ready"
     
+    # Ensure device has a partition
+    local partition_path
+    partition_path=$(ensure_device_partition "$device_path") || die "Failed to ensure partition on $device_path"
+    
+    # Wait for partition to be ready
+    wait_for_device "$partition_path" 10 || die "Partition $partition_path not ready"
+    
     # Create mount point
     ensure_directory "$mount_point"
     
@@ -203,40 +264,40 @@ mount_iscsi_device() {
         return 0
     fi
     
-    # Check if device is mounted elsewhere (at this point, we know it's not at the correct mount point)
-    if is_mounted "$device_path"; then
+    # Check if partition is mounted elsewhere (at this point, we know it's not at the correct mount point)
+    if is_mounted "$partition_path"; then
         local current_mount
-        current_mount=$(findmnt -n -o TARGET "$device_path" 2>/dev/null | head -1)
+        current_mount=$(findmnt -n -o TARGET "$partition_path" 2>/dev/null | head -1)
         if [ -z "$current_mount" ]; then
             log_warning "Device appears mounted but location cannot be determined"
             # Fallback to grep method
-            current_mount=$(mount | grep "^$device_path " | awk '{print $3}' | head -1)
+            current_mount=$(mount | grep "^$partition_path " | awk '{print $3}' | head -1)
         fi
         if [ -n "$current_mount" ]; then
-            log_warning "Device $device_path is already mounted at $current_mount"
+            log_warning "Partition $partition_path is already mounted at $current_mount"
             log_info "Unmounting from $current_mount..."
-            umount "$current_mount" || die "Failed to unmount device from $current_mount"
+            umount "$current_mount" || die "Failed to unmount partition from $current_mount"
         fi
     fi
     
-    # Check if device has a filesystem
-    if ! blkid "$device_path" >/dev/null 2>&1; then
-        log_warning "No filesystem found on $device_path"
+    # Check if partition has a filesystem
+    if ! blkid "$partition_path" >/dev/null 2>&1; then
+        log_warning "No filesystem found on $partition_path"
         log_info "Creating $fs_type filesystem..."
-        mkfs -t "$fs_type" "$device_path" || die "Failed to create filesystem"
+        mkfs -t "$fs_type" "$partition_path" || die "Failed to create filesystem"
     fi
     
-    # Mount device
-    log_info "Mounting $device_path to $mount_point..."
-    mount -t "$fs_type" "$device_path" "$mount_point" || die "Failed to mount device"
+    # Mount partition
+    log_info "Mounting $partition_path to $mount_point..."
+    mount -t "$fs_type" "$partition_path" "$mount_point" || die "Failed to mount partition"
     
     log_info "iSCSI device mounted successfully"
     
     # Add to fstab for persistence (using _netdev option)
-    if ! grep -q "$device_path" /etc/fstab; then
+    if ! grep -q "$partition_path" /etc/fstab; then
         log_info "Adding entry to /etc/fstab..."
         backup_file /etc/fstab
-        echo "$device_path $mount_point $fs_type _netdev,defaults 0 0" >> /etc/fstab
+        echo "$partition_path $mount_point $fs_type _netdev,defaults 0 0" >> /etc/fstab
     fi
     
     # Show mount info
