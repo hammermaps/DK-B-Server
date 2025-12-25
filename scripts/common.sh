@@ -41,7 +41,7 @@ log() {
     
     # Check if we should log this level
     if [ ${LOG_LEVELS[$level]:-1} -ge ${LOG_LEVELS[$CURRENT_LOG_LEVEL]:-1} ]; then
-        echo "[$timestamp] [$level] $message" | tee -a "$LOG_FILE" >&2
+        { echo "[$timestamp] [$level] $message" | tee -a "$LOG_FILE"; } >&2
     fi
 }
 
