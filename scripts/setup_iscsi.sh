@@ -206,10 +206,17 @@ mount_iscsi_device() {
     # Check if device is mounted elsewhere (at this point, we know it's not at the correct mount point)
     if is_mounted "$device_path"; then
         local current_mount
-        current_mount=$(mount | grep "^$device_path " | awk '{print $3}')
-        log_warning "Device $device_path is already mounted at $current_mount"
-        log_info "Unmounting from $current_mount..."
-        umount "$current_mount" || die "Failed to unmount device from $current_mount"
+        current_mount=$(findmnt -n -o TARGET "$device_path" 2>/dev/null | head -1)
+        if [ -z "$current_mount" ]; then
+            log_warning "Device appears mounted but location cannot be determined"
+            # Fallback to grep method
+            current_mount=$(mount | grep "^$device_path " | awk '{print $3}' | head -1)
+        fi
+        if [ -n "$current_mount" ]; then
+            log_warning "Device $device_path is already mounted at $current_mount"
+            log_info "Unmounting from $current_mount..."
+            umount "$current_mount" || die "Failed to unmount device from $current_mount"
+        fi
     fi
     
     # Check if device has a filesystem
