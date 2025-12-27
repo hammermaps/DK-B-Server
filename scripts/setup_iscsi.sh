@@ -228,6 +228,9 @@ ensure_device_partition() {
         log_info "Partition $partition created successfully"
         
         # Format the newly created partition with the specified filesystem
+        # Note: We format here immediately after creation to ensure the partition
+        # is ready for use. The filesystem check in mount_iscsi_device() serves
+        # as a safety net for existing partitions without filesystems.
         log_info "Formatting partition $partition with $fs_type filesystem..."
         mkfs -t "$fs_type" "$partition" || die "Failed to format partition with $fs_type"
         log_info "Partition $partition formatted successfully with $fs_type"
