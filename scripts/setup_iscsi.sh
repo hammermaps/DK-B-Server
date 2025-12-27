@@ -184,6 +184,7 @@ find_iscsi_device() {
 # Ensure device has a partition
 ensure_device_partition() {
     local device="$1"
+    local fs_type="${2:-ext4}"
     local partition="${device}1"
     
     log_info "Checking if device has a partition table..."
@@ -225,6 +226,11 @@ ensure_device_partition() {
         fi
         
         log_info "Partition $partition created successfully"
+        
+        # Format the newly created partition with the specified filesystem
+        log_info "Formatting partition $partition with $fs_type filesystem..."
+        mkfs -t "$fs_type" "$partition" || die "Failed to format partition with $fs_type"
+        log_info "Partition $partition formatted successfully with $fs_type"
     else
         log_info "Device $device already has partitions"
         # Get the first partition with error handling
@@ -255,7 +261,7 @@ mount_iscsi_device() {
     
     # Ensure device has a partition
     local partition_path
-    partition_path=$(ensure_device_partition "$device_path") || die "Failed to ensure partition on $device_path"
+    partition_path=$(ensure_device_partition "$device_path" "$fs_type") || die "Failed to ensure partition on $device_path"
     
     # Wait for partition to be ready
     wait_for_device "$partition_path" 10 || die "Partition $partition_path not ready"
