@@ -181,16 +181,35 @@ find_iscsi_device() {
     return 1
 }
 
+# Get first partition of a device
+# Returns the full path to the first partition (e.g., /dev/sde1, /dev/nvme0n1p1)
+get_first_partition() {
+    local device="$1"
+    local partition_name
+    
+    partition_name=$(lsblk -ln -o NAME,TYPE "$device" 2>/dev/null | awk '$2=="part" {print $1; exit}')
+    if [ -n "$partition_name" ]; then
+        # Validate partition name contains only expected characters (alphanumeric, dash, underscore)
+        if [[ ! "$partition_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            log_error "Invalid partition name format: $partition_name"
+            return 1
+        fi
+        echo "/dev/$partition_name"
+        return 0
+    fi
+    return 1
+}
+
 # Ensure device has a partition
 ensure_device_partition() {
     local device="$1"
     local fs_type="${2:-ext4}"
-    local partition="${device}1"
+    local partition=""
     
     log_info "Checking if device has a partition table..."
     
     # Check if device already has partitions
-    if [ -b "$partition" ]; then
+    if partition=$(get_first_partition "$device"); then
         log_info "Partition $partition already exists"
         echo "$partition"
         return 0
@@ -210,19 +229,26 @@ ensure_device_partition() {
         log_info "No partitions found on $device, creating partition..."
         parted -s "$device" mkpart primary ext4 0% 100% || die "Failed to create partition"
         
-        # Wait for partition device to appear
-        log_info "Waiting for partition device to appear..."
-        local waited=0
-        while [ ! -b "$partition" ] && [ $waited -lt 30 ]; do
-            sleep 1
-            if ! partprobe "$device" 2>/dev/null; then
-                log_warning "partprobe failed for $device at attempt $((waited + 1))"
-            fi
-            waited=$((waited + 1))
-        done
+        # Trigger kernel to re-read partition table
+        partprobe "$device" 2>/dev/null || log_warning "partprobe failed for $device"
         
+        # Wait for udev to process the partition
+        log_info "Waiting for udev to settle..."
+        udevadm settle --timeout=30 || log_warning "udevadm settle timed out"
+        
+        # Give additional time for device nodes to stabilize after udev processing
+        # This prevents race conditions where the device node appears but isn't fully ready
+        sleep 2
+        
+        # Find the actual partition (handles different device naming conventions)
+        log_info "Discovering partition name..."
+        if ! partition=$(get_first_partition "$device"); then
+            die "Failed to find partition after creation on $device"
+        fi
+        
+        # Verify partition device exists
         if [ ! -b "$partition" ]; then
-            die "Partition device $partition did not appear"
+            die "Partition device $partition does not exist after discovery"
         fi
         
         log_info "Partition $partition created successfully"
@@ -236,12 +262,10 @@ ensure_device_partition() {
         log_info "Partition $partition formatted successfully with $fs_type"
     else
         log_info "Device $device already has partitions"
-        # Get the first partition with error handling
-        partition=$(lsblk -ln -o NAME,TYPE "$device" 2>/dev/null | awk '$2=="part" {print $1; exit}')
-        if [ -z "$partition" ]; then
+        # Get the first partition
+        if ! partition=$(get_first_partition "$device"); then
             die "Could not find partition on $device"
         fi
-        partition="/dev/$partition"
     fi
     
     echo "$partition"
