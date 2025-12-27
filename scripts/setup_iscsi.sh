@@ -181,6 +181,20 @@ find_iscsi_device() {
     return 1
 }
 
+# Get first partition of a device
+# Returns the full path to the first partition (e.g., /dev/sde1, /dev/nvme0n1p1)
+get_first_partition() {
+    local device="$1"
+    local partition_name
+    
+    partition_name=$(lsblk -ln -o NAME,TYPE "$device" 2>/dev/null | awk '$2=="part" {print $1; exit}')
+    if [ -n "$partition_name" ]; then
+        echo "/dev/$partition_name"
+        return 0
+    fi
+    return 1
+}
+
 # Ensure device has a partition
 ensure_device_partition() {
     local device="$1"
@@ -189,10 +203,8 @@ ensure_device_partition() {
     
     log_info "Checking if device has a partition table..."
     
-    # Check if device already has partitions using lsblk
-    partition=$(lsblk -ln -o NAME,TYPE "$device" 2>/dev/null | awk '$2=="part" {print $1; exit}')
-    if [ -n "$partition" ]; then
-        partition="/dev/$partition"
+    # Check if device already has partitions
+    if partition=$(get_first_partition "$device"); then
         log_info "Partition $partition already exists"
         echo "$partition"
         return 0
@@ -219,16 +231,15 @@ ensure_device_partition() {
         log_info "Waiting for udev to settle..."
         udevadm settle --timeout=30 || log_warning "udevadm settle timed out"
         
-        # Give additional time for device nodes to stabilize
+        # Give additional time for device nodes to stabilize after udev processing
+        # This prevents race conditions where the device node appears but isn't fully ready
         sleep 2
         
-        # Find the actual partition using lsblk (handles different device naming conventions)
+        # Find the actual partition (handles different device naming conventions)
         log_info "Discovering partition name..."
-        partition=$(lsblk -ln -o NAME,TYPE "$device" 2>/dev/null | awk '$2=="part" {print $1; exit}')
-        if [ -z "$partition" ]; then
+        if ! partition=$(get_first_partition "$device"); then
             die "Failed to find partition after creation on $device"
         fi
-        partition="/dev/$partition"
         
         # Verify partition device exists
         if [ ! -b "$partition" ]; then
@@ -246,12 +257,10 @@ ensure_device_partition() {
         log_info "Partition $partition formatted successfully with $fs_type"
     else
         log_info "Device $device already has partitions"
-        # Get the first partition with error handling
-        partition=$(lsblk -ln -o NAME,TYPE "$device" 2>/dev/null | awk '$2=="part" {print $1; exit}')
-        if [ -z "$partition" ]; then
+        # Get the first partition
+        if ! partition=$(get_first_partition "$device"); then
             die "Could not find partition on $device"
         fi
-        partition="/dev/$partition"
     fi
     
     echo "$partition"
