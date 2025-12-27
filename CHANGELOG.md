@@ -5,6 +5,15 @@ All notable changes to the DK-B-Server automation project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **setup_iscsi.sh**: Fixed partition formatting error where mkfs would fail with "file does not exist"
+  - Replaced hardcoded partition naming assumption (`${device}1`) with dynamic partition discovery using `lsblk`
+  - Added `udevadm settle` to ensure udev finishes processing partition before formatting
+  - Added additional stabilization delay to prevent race conditions
+  - Now handles different device naming conventions (e.g., `/dev/sde1`, `/dev/nvme0n1p1`, `/dev/loop0p1`)
+
 ## [1.0.0] - 2024-12-24
 
 ### Added
