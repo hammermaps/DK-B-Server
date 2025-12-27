@@ -51,7 +51,7 @@ ISCSI_CHAP_PASSWORD=""
 # =============================================================================
 
 # Cache device (SSD RAID array)
-CACHE_DEVICE="/dev/md128"
+CACHE_DEVICE="/dev/md0"
 
 # Cache size (110 GB SSD)
 CACHE_SIZE="110G"
