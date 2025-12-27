@@ -189,6 +189,11 @@ get_first_partition() {
     
     partition_name=$(lsblk -ln -o NAME,TYPE "$device" 2>/dev/null | awk '$2=="part" {print $1; exit}')
     if [ -n "$partition_name" ]; then
+        # Validate partition name contains only expected characters (alphanumeric, dash, underscore)
+        if [[ ! "$partition_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            log_error "Invalid partition name format: $partition_name"
+            return 1
+        fi
         echo "/dev/$partition_name"
         return 0
     fi
